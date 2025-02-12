@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { 
-  Menu, X, User, Settings as SettingsIcon, 
+  User, Settings as SettingsIcon, 
   Folder, Home, Users, PersonStanding,
   Calendar, Bell
 } from 'lucide-react';

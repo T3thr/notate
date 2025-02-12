@@ -1,21 +1,88 @@
+/* app/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #ffffff;
+    --foreground: #0f172a;
+    --container: #f8fafc;
+    --divider: #e2e8f0;
+    --muted: #64748b;
+    --shadow-light: rgba(0, 0, 0, 0.1);
+    --primary: #0284c7;
+    --primary-foreground: #ffffff;
+    --secondary: #475569;
+    --secondary-foreground: #ffffff;
+    --destructive: #ef4444;
+    --destructive-foreground: #ffffff;
+    --accent: #f1f5f9;
+    --accent-foreground: #0f172a;
+    --popover: #ffffff;
+    --popover-foreground: #0f172a;
+    --card: #ffffff;
+    --card-foreground: #0f172a;
+  }
+
+  .dark {
+    --background: #090e1b;
+    --foreground: #f8fafc;
+    --container: #1e293b;
+    --divider: #334155;
+    --muted: #94a3b8;
+    --shadow-light: rgba(0, 0, 0, 0.3);
+    --primary: #0ea5e9;
+    --primary-foreground: #f8fafc;
+    --secondary: #64748b;
+    --secondary-foreground: #f8fafc;
+    --destructive: #f87171;
+    --destructive-foreground: #f8fafc;
+    --accent: #1e293b;
+    --accent-foreground: #f8fafc;
+    --popover: #1e293b;
+    --popover-foreground: #f8fafc;
+    --card: #1e293b;
+    --card-foreground: #f8fafc;
   }
 }
 
-body {
-  color: var(--foreground);
+@layer components {
+  .sidebar-toggle {
+    @apply fixed z-20 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-primary  shadow-md transition-all lg:hidden;
+  }
+
+  .sidebar {
+    @apply fixed left-0 top-0 z-10 h-full w-64 transform bg-background shadow-md transition-transform duration-300 ease-in-out;
+  }
+
+  .sidebar-closed {
+    @apply -translate-x-full;
+  }
+
+  .main-content {
+    @apply min-h-screen bg-background transition-all duration-300 ease-in-out;
+  }
+
+  .main-content-with-sidebar {
+    @apply lg:ml-64;
+  }
+}
+
+/* Custom Scrollbar for Webkit Browsers */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--divider);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--foreground);
+}
+
+::-webkit-scrollbar-track {
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
 }

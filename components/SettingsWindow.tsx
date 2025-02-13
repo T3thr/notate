@@ -17,7 +17,7 @@ const Tab: React.FC<TabProps> = ({ icon: Icon, label, isActive, onClick }) => (
     onClick={onClick}
     className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm transition-colors
       ${isActive 
-        ? "bg-primary text-foreground" 
+        ? "bg-container text-foreground" 
         : "text-foreground hover:bg-accent"}`}
   >
     <Icon className="h-4 w-4" />
@@ -93,12 +93,13 @@ const SettingsWindow: React.FC<SettingsWindowProps> = ({ isOpen, onClose }) => {
           />
           
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            initial={{ opacity: 0, y: "100%" }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: "100%" }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="fixed inset-x-0 bottom-0 z-50 mx-auto flex items-center justify-center p-4 sm:inset-0 sm:items-start sm:justify-center sm:pt-20"
           >
-            <div className="w-full max-w-3xl bg-background p-6 rounded-lg shadow-xl sm:w-11/12 md:w-10/12 lg:w-8/12 xl:w-7/12">
+            <div className="w-full max-w-3xl bg-background p-6 rounded-lg shadow-xl sm:w-11/12 md:w-10/12 lg:w-8/12 xl:w-7/12 sm:rounded-b-none sm:rounded-t-lg">
               <div className="flex items-center justify-between border-b border-divider text-foreground pb-4">
                 <div className="flex items-center gap-2">
                   <SettingsIcon className="h-5 w-5" />

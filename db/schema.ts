@@ -18,12 +18,16 @@ export const users = pgTable('users', {
   id: serial('id').primaryKey(),
   email: text('email').notNull().unique(),
   name: text('name').notNull(),
-  avatarUrl: text('avatar_url'),
+  username: text('username').notNull().unique(),
+  image: text('image_url'),
+  avatar: text('avatar_url'),
   role: text('role').default('user').notNull(),
+  password: text('password').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull().
-  $onUpdate(() => new Date()),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+  .$onUpdate(() => new Date()),
 });
+
 
 // Workspaces table
 export const workspaces = pgTable('workspaces', {
@@ -47,19 +51,31 @@ export const projects = pgTable('projects', {
   $onUpdate(() => new Date()),
 });
 
+// Kanban board columns
+export const kanbanColumns = pgTable('kanban_columns', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').references(() => projects.id).notNull(),
+  name: text('name').notNull(),  // Column name like "To Do", "In Progress", etc.
+  position: integer('position').default(0).notNull(),  // Order of the column
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+  .$onUpdate(() => new Date()),
+});
+
 // Tasks table
 export const tasks = pgTable('tasks', {
   id: serial('id').primaryKey(),
   projectId: integer('project_id').references(() => projects.id).notNull(),
+  kanbanColumnId: integer('kanban_column_id').references(() => kanbanColumns.id),
   title: text('title').notNull(),
   description: text('description'),
-  status: text('status').default('todo').notNull(),
-  priority: text('priority').default('medium').notNull(),
-  assigneeId: integer('assignee_id').references(() => users.id),
   dueDate: timestamp('due_date'),
+  priority: text('priority').default('medium').notNull(),
+  status: text('status').default('todo').notNull(),
+  assigneeId: integer('assignee_id').references(() => users.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull().
-  $onUpdate(() => new Date()),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+  .$onUpdate(() => new Date()),
 });
 
 // Events table (for calendar integration)
@@ -110,25 +126,27 @@ export const activityLogs = pgTable('activity_logs', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
-// Define relations
 export const userRelations = relations(users, ({ many }) => ({
-  workspaceMemberships: many(workspaceMembers),
   assignedTasks: many(tasks, { relationName: 'assignee' }),
-  comments: many(comments),
   activityLogs: many(activityLogs),
+}));
+
+export const projectRelations = relations(projects, ({ many, one }) => ({
+  workspace: one(workspaces, {
+    fields: [projects.workspaceId],
+    references: [workspaces.id],
+  }),
+  tasks: many(tasks),
+  events: many(events),
+  activityLogs: many(activityLogs),
+}));
+
+export const kanbanColumnRelations = relations(kanbanColumns, ({ many }) => ({
+  tasks: many(tasks),
 }));
 
 export const workspaceRelations = relations(workspaces, ({ many }) => ({
   members: many(workspaceMembers),
   projects: many(projects),
   events: many(events),
-  activityLogs: many(activityLogs),
-}));
-
-export const projectRelations = relations(projects, ({ one, many }) => ({
-  workspace: one(workspaces, {
-    fields: [projects.workspaceId],
-    references: [workspaces.id],
-  }),
-  tasks: many(tasks),
 }));

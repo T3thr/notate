@@ -8,6 +8,20 @@
       "when": 1739385946360,
       "tag": "0000_slim_the_anarchist",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1739450343911,
+      "tag": "0001_robust_cammi",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1739468532732,
+      "tag": "0002_red_the_santerians",
+      "breakpoints": true
     }
   ]
 }

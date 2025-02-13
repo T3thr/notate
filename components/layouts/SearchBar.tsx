@@ -1,5 +1,4 @@
 // components/SearchBar.tsx
-// components/SearchBar.tsx
 'use client'
 
 import { useState } from 'react';
@@ -10,7 +9,7 @@ import { useGlobal } from '@/context/GlobalProvider';
 const SearchBar = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const { screenSize } = useGlobal();
+  const { screenSize, isSidebarOpen } = useGlobal();
 
   const isMobile = screenSize === 'mobile' || screenSize === 'tablet';
 
@@ -18,6 +17,10 @@ const SearchBar = () => {
     e.preventDefault();
     // Implement search functionality here
     console.log('Searching for:', searchQuery);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery(''); // Clear the search query when the X button is clicked
   };
 
   return (
@@ -40,7 +43,11 @@ const SearchBar = () => {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="fixed inset-x-0 top-0 z-[1000] bg-background p-4 shadow-lg" // Increased z-index
+                className="fixed inset-x-0 top-0 z-[1000] bg-background p-4 shadow-lg"
+                style={{
+                  marginLeft: isSidebarOpen ? '16rem' : '0', // Adjust based on sidebar state
+                  maxWidth: isSidebarOpen ? 'calc(100% - 16rem)' : '100%', // Constrain width
+                }}
               >
                 <form onSubmit={handleSearch} className="relative">
                   <input
@@ -48,7 +55,7 @@ const SearchBar = () => {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search..."
-                    className="w-full rounded-md bg-accent py-2 pl-10 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full rounded-md bg-accent py-2 pl-10 pr-10 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     autoFocus
                   />
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground" />
@@ -75,6 +82,17 @@ const SearchBar = () => {
             placeholder="Search..."
             className="h-9 w-64 rounded-md bg-accent text-foreground pl-10 pr-4 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:w-80"
           />
+          {/* Add X button to clear search query */}
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={handleClearSearch}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground hover:text-foreground"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </form>
       )}
     </div>

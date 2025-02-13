@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getOfflineTasks } from "@/lib/db";
+import { getOfflineTasks } from "@/lib/indexedDB";
 
 export function useSync() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);

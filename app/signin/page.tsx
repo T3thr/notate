@@ -91,7 +91,7 @@ export default function SignInPage() {
             Welcome back
           </h2>
           <p className="mt-2 text-sm text-muted">
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <Link href="/signup" className="text-primary hover:text-primary/90">
               Sign up
             </Link>

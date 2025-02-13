@@ -73,14 +73,22 @@ export const options: NextAuthOptions = {
           }
 
           // Regular user authentication
+          if (!credentials?.email && !credentials?.username) {
+            throw new Error("Email or username is required");
+          }
+
           const user = await validateUserCredentials({
             email: credentials?.email,
             username: credentials?.username,
             password: credentials?.password,
           });
 
+          if (!user) {
+            throw new Error("User not found");
+          }
+
           const isValidPassword = await bcrypt.compare(
-            credentials?.password!,
+            credentials?.password || "",
             user.password
           );
 

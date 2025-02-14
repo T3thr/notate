@@ -30,7 +30,7 @@ const OfflineLayout = ({ children }: { children: React.ReactNode }) =>{
   }, []);
 
   return (
-    <html>
+    <html lang="en">
       <body>
         {/* Display offline message */}
         {offline && <div className="bg-red-500 text-white p-2 text-center">You&apos;re offline</div>}

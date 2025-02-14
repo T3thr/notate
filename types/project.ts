@@ -1,24 +1,30 @@
-// app/types/project.ts
+// types/project.ts
+interface Project {
+  id: number;
+  workspaceId: number;
+  name: string;
+  description: string | null;
+  isPersonal: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
-export interface Project {
-    id: string;
-    title: string;
-    description: string;
-    progress: number;
-    dueDate: Date;
-    members: TeamMember[];
-    status: 'active' | 'completed' | 'on-hold';
-  }
-  
-  export interface TeamMember {
-    id: string;
-    name: string;
-    avatar: string;
-    role: string;
-  }
-  
-  export interface NavItem {
-    title: string;
-    href: string;
-    icon: React.ComponentType;
-  }
+interface KanbanColumn {
+  id: number;
+  projectId: number;
+  name: string;
+  position: number;
+  tasks: Task[];
+}
+
+interface Task {
+  id: number;
+  projectId: number;
+  kanbanColumnId: number;
+  title: string;
+  description: string | null;
+  dueDate: Date | null;
+  priority: string;
+  status: string;
+  assigneeId: number | null;
+}

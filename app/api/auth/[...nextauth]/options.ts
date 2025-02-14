@@ -18,7 +18,10 @@ declare module "next-auth" {
       role: string;
       username?: string;
       isVerified?: boolean;
-      avatar?: string;
+      avatar?: {
+        url: string;
+      isVerified: string
+      };
     } & DefaultSession["user"];
   }
 
@@ -46,41 +49,44 @@ export const options: NextAuthOptions = {
     CredentialsProvider({
       name: "Credentials",
       credentials: {
+        type: { label: "Type", type: "text" }, // Add type field to distinguish between admin and user
         email: { label: "Email", type: "text" },
         username: { label: "Username", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
         try {
+          if (!credentials) {
+            throw new Error("No credentials provided");
+          }
+
           // Admin authentication
-          if (
-            credentials?.email === process.env.ADMIN_EMAIL &&
-            credentials?.password === process.env.ADMIN_PASSWORD
-          ) {
-            const adminUser = await validateUserCredentials({ 
-              email: process.env.ADMIN_EMAIL 
-            });
-            
-            return {
-              id: adminUser.id.toString(),
-              email: adminUser.email,
-              name: adminUser.name,
-              username: adminUser.username,
-              role: "admin",
-              image: adminUser.avatar,
-              isVerified: true,
-            };
+          if (credentials.type === 'admin') {
+            if (
+              credentials.email === process.env.ADMIN_EMAIL &&
+              credentials.password === process.env.ADMIN_PASSWORD
+            ) {
+              return {
+                id: "admin",
+                email: process.env.ADMIN_EMAIL,
+                name: "admin",
+                username: "Admin",
+                role: "admin",
+                isVerified: true,
+              };
+            }
+            throw new Error("Invalid admin credentials");
           }
 
           // Regular user authentication
-          if (!credentials?.email && !credentials?.username) {
+          if (!credentials.email && !credentials.username) {
             throw new Error("Email or username is required");
           }
 
           const user = await validateUserCredentials({
-            email: credentials?.email,
-            username: credentials?.username,
-            password: credentials?.password,
+            email: credentials.email,
+            username: credentials.username,
+            password: credentials.password,
           });
 
           if (!user) {
@@ -88,12 +94,16 @@ export const options: NextAuthOptions = {
           }
 
           const isValidPassword = await bcrypt.compare(
-            credentials?.password || "",
+            credentials.password || "",
             user.password
           );
 
           if (!isValidPassword) {
             throw new Error("Invalid password");
+          }
+
+          if (!user.isVerified) {
+            throw new Error("Please verify your email before signing in");
           }
 
           return {
@@ -102,8 +112,8 @@ export const options: NextAuthOptions = {
             name: user.name,
             username: user.username,
             role: user.role,
-            image: user.avatar,
-            isVerified: true,
+            avatar: user.image,
+            isVerified: user.isVerified,
           };
         } catch (error: any) {
           throw new Error(error.message || "Authentication failed");
@@ -141,6 +151,7 @@ export const options: NextAuthOptions = {
                 avatar: user.image,
                 role: "user",
                 password: hashedPassword,
+                isVerified: true, // Google users are automatically verified
               })
               .returning();
 

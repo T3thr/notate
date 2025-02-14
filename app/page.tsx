@@ -1,9 +1,12 @@
 // app/page.tsx
 'use client'
 
+import { useState } from 'react';
 import { useGlobal } from '../context/GlobalProvider';
+import { useAuth } from '../context/AuthContext';
 import NavBar from '@/components/layouts/NavBar';
 import SideBar from '@/components/layouts/SideBar';
+import ProjectDetailPage from '@/components/ProjectDetailPage';
 import { motion } from 'framer-motion';
 import { 
   Calendar, ClipboardList, Users, Target,
@@ -12,6 +15,8 @@ import {
 
 export default function Home() {
   const { isSidebarOpen, toggleSidebar, screenSize } = useGlobal();
+  const { user } = useAuth();
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const isMobile = screenSize === 'mobile';
 
   const containerVariants = {
@@ -25,16 +30,46 @@ export default function Home() {
     }
   };
 
-  // Example Kanban board columns
-  const columns = [
-    { id: 'todo', title: 'To Do', tasks: [{ id: 'task1', title: 'Design new layout' }] },
-    { id: 'inProgress', title: 'In Progress', tasks: [{ id: 'task2', title: 'Implement API' }] },
-    { id: 'done', title: 'Done', tasks: [{ id: 'task3', title: 'Test application' }] }
-  ];
+  // Render project detail page if a project is selected
+  if (selectedProjectId !== null) {
+    return (
+      <div className="flex min-h-screen bg-background">
+        <SideBar 
+          isOpen={isSidebarOpen}
+          onToggle={toggleSidebar}
+          onProjectSelect={setSelectedProjectId}
+          selectedProjectId={selectedProjectId} 
+          session={null}        
+        />
+        
+        <motion.div 
+          className="flex-1"
+          initial="collapsed"
+          animate={isSidebarOpen && !isMobile ? "expanded" : "collapsed"}
+          variants={containerVariants}
+        >
+          <NavBar currentPath={['Projects', 'Project Details']} />
+          <ProjectDetailPage projectId={selectedProjectId} />
+        </motion.div>
+      </div>
+    );
+  }
+    // Example Kanban board columns
+    const columns = [
+      { id: 'todo', title: 'To Do', tasks: [{ id: 'task1', title: 'Design new layout' }] },
+      { id: 'inProgress', title: 'In Progress', tasks: [{ id: 'task2', title: 'Implement API' }] },
+      { id: 'done', title: 'Done', tasks: [{ id: 'task3', title: 'Test application' }] }
+    ];
 
+  // Original dashboard content
   return (
     <div className="flex min-h-screen bg-background">
-      <SideBar isOpen={isSidebarOpen} onToggle={toggleSidebar} />
+      <SideBar 
+        isOpen={isSidebarOpen}
+        onToggle={toggleSidebar}
+        onProjectSelect={setSelectedProjectId} 
+        session={null}      
+        />
       
       <motion.div 
         className="flex-1"

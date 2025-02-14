@@ -1,46 +1,52 @@
-// app/signin/page.tsx
 'use client';
 
-import { useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
-import { useRouter, useSearchParams } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { signIn } from 'next-auth/react';
-import { z } from 'zod';
+import { signIn, useSession } from 'next-auth/react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
+import { toast } from 'react-toastify';
+import { Loader2, Eye, EyeOff, Mail, User, Lock } from 'lucide-react';
 import { FaGoogle } from 'react-icons/fa';
 
-const loginSchema = z.object({
-  email: z.string().email('Invalid email format'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-});
+interface FormData {
+  username: string;
+  email: string;
+  password: string;
+}
 
-export default function SignInPage() {
-  const [formData, setFormData] = useState({
+const SignIn = () => {
+  const { data: session } = useSession();
+  const { loginUser, adminSignIn, error, clearErrors } = useAuth();
+  const router = useRouter();
+  const params = useSearchParams();
+  const callbackUrl = params.get('callbackUrl') || '/';
+
+  const [formData, setFormData] = useState<FormData>({
+    username: '',
     email: '',
     password: '',
   });
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [isUsernameSignIn, setIsUsernameSignIn] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
-  const { loginUser } = useAuth();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') || '/';
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors((prev) => ({
-        ...prev,
-        [name]: '',
-      }));
+  useEffect(() => {
+    if (session?.user) {
+      router.push(callbackUrl);
     }
+  }, [session, callbackUrl, router]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      clearErrors();
+    }
+  }, [error, clearErrors]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -48,28 +54,35 @@ export default function SignInPage() {
     setIsLoading(true);
 
     try {
-      // Validate form data
-      const validatedData = loginSchema.parse(formData);
-      
-      // Attempt to login
-      const result = await loginUser({
-        email: validatedData.email,
-        password: validatedData.password,
-      });
+      // Check for admin login
+      if (formData.username === 'Admin' || formData.email?.toLowerCase() === process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
+        const adminResult = await adminSignIn();
+        if (adminResult.success) {
+          router.push('/');
+          return;
+        }
+        throw new Error(adminResult.message);
+      }
+
+      // Regular user login
+      const credentials = {
+        type: 'user',
+        ...(isUsernameSignIn 
+          ? { username: formData.username }
+          : { email: formData.email }),
+        password: formData.password
+      };
+
+      const result = await loginUser(credentials);
 
       if (result.success) {
+        toast.success('Successfully signed in!');
         router.push(callbackUrl);
+      } else {
+        console.error(result.message);
       }
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        const newErrors: { [key: string]: string } = {};
-        error.errors.forEach((err) => {
-          if (err.path) {
-            newErrors[err.path[0]] = err.message;
-          }
-        });
-        setErrors(newErrors);
-      }
+    } catch (error: any) {
+      console.error(error.message || 'An error occurred during sign-in');
     } finally {
       setIsLoading(false);
     }
@@ -77,129 +90,186 @@ export default function SignInPage() {
 
   const handleGoogleSignIn = async () => {
     try {
-      await signIn('google', { callbackUrl });
-    } catch (error) {
-      console.error('Google sign in error:', error);
+      setIsLoading(true);
+      const result = await signIn('google', {
+        callbackUrl,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        toast.error(result.error);
+      } else if (result?.ok) {
+        toast.success('Successfully signed in with Google!');
+        router.push(callbackUrl);
+      }
+    } catch (error: any) {
+      toast.error('Failed to sign in with Google');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 bg-background">
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <h2 className="mt-6 text-3xl font-bold text-foreground">
-            Welcome back
-          </h2>
-          <p className="mt-2 text-sm text-muted">
-            Don&apos;t have an account?{' '}
-            <Link href="/signup" className="text-primary hover:text-primary/90">
-              Sign up
-            </Link>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-container px-4">
+      <div className="w-full max-w-md space-y-8 bg-card p-8 rounded-xl shadow-lg ring-1 ring-border">
+        {/* Header */}
+        <div className="text-center space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            Welcome Back
+          </h1>
+          <p className="text-muted">
+            Sign in to continue to your workspace
           </p>
         </div>
 
-        <div className="mt-8 bg-card sm:rounded-lg shadow-md p-6 space-y-6">
+        {/* Sign In Method Toggle */}
+        <div className="flex rounded-lg p-1 bg-muted">
           <button
-            onClick={handleGoogleSignIn}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-divider rounded-md text-foreground hover:bg-accent transition-colors"
             type="button"
+            className={`flex-1 py-2 px-4 rounded-md transition-all ${
+              isUsernameSignIn
+                ? 'bg-card shadow-sm text-foreground'
+                : 'text-foreground'
+            }`}
+            onClick={() => setIsUsernameSignIn(true)}
+            disabled={isLoading}
           >
-            <FaGoogle className="w-5 h-5" />
-            <span>Continue with Google</span>
+            <User className="w-4 h-4 inline mr-2" />
+            Username
           </button>
+          <button
+            type="button"
+            className={`flex-1 py-2 px-4 rounded-md transition-all ${
+              !isUsernameSignIn
+                ? 'bg-card shadow-sm text-foreground'
+                : 'text-foreground'
+            }`}
+            onClick={() => setIsUsernameSignIn(false)}
+            disabled={isLoading}
+          >
+            <Mail className="w-4 h-4 inline mr-2" />
+            Email
+          </button>
+        </div>
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-divider" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-card text-muted">Or continue with</span>
+        {/* Sign In Form */}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-4">
+            {isUsernameSignIn ? (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Username
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-3 h-4 w-4 text-foreground" />
+                  <input
+                    type="text"
+                    name="username"
+                    value={formData.username}
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-4 py-2 bg-background text-foreground border border-input rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="Enter your username"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Email
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-foreground" />
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-4 py-2 bg-background text-foreground border border-input rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="Enter your email"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-foreground" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="w-full pl-10 pr-12 py-2 bg-background text-foreground border border-input rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="Enter your password"
+                  required
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3 text-foreground hover:text-foreground"
+                  disabled={isLoading}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
 
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-foreground"
-              >
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={formData.email}
-                onChange={handleInputChange}
-                className="mt-1 block w-full px-3 py-2 bg-background border border-divider rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                disabled={isLoading}
-              />
-              {errors.email && (
-                <p className="mt-1 text-sm text-destructive">{errors.email}</p>
-              )}
-            </div>
-
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-foreground"
-              >
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={formData.password}
-                onChange={handleInputChange}
-                className="mt-1 block w-full px-3 py-2 bg-background border border-divider rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                disabled={isLoading}
-              />
-              {errors.password && (
-                <p className="mt-1 text-sm text-destructive">{errors.password}</p>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 text-primary focus:ring-primary border-divider rounded"
-                />
-                <label
-                  htmlFor="remember-me"
-                  className="ml-2 block text-sm text-foreground"
-                >
-                  Remember me
-                </label>
-              </div>
-
-              <div className="text-sm">
-                <Link
-                  href="/forgot-password"
-                  className="text-primary hover:text-primary/90"
-                >
-                  Forgot your password?
-                </Link>
-              </div>
-            </div>
-
+          <div className="space-y-4">
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full py-2.5 px-4 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             >
-              {isLoading ? 'Signing in...' : 'Sign in'}
+              {isLoading && <Loader2 className="animate-spin h-4 w-4" />}
+              <span>{isLoading ? 'Signing in...' : 'Sign in'}</span>
             </button>
-          </form>
+
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={isLoading}
+              className="w-full py-2.5 px-4 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-destructive focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+            >
+              <FaGoogle className="h-4 w-4" />
+              <span>Continue with Google</span>
+            </button>
+          </div>
+        </form>
+
+        {/* Footer Links */}
+        <div className="space-y-4 text-center">
+          <Link
+            href="/forgot-password"
+            className="text-sm text-foreground hover:text-foreground transition-colors"
+          >
+            Forgot your password?
+          </Link>
+          <div className="text-sm">
+            <span className="text-foreground">Don't have an account? </span>
+            <Link
+              href="/signup"
+              className="text-primary hover:text-primary/90 font-medium"
+            >
+              Sign up
+            </Link>
+          </div>
         </div>
       </div>
     </div>
   );
-}
+};
+
+export default SignIn;

@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
 import { signIn as nextAuthSignIn, getSession, SignInResponse } from 'next-auth/react';
 
-// Types aligned with NextAuth options
 interface User {
   id: string;
   role: string;
@@ -13,7 +12,7 @@ interface User {
   email?: string | null;
   username?: string | null;
   avatar?: {
-    url: string ;
+    url: string | null;
   } | null;
   isVerified?: boolean;
   image?: string | null;
@@ -44,10 +43,6 @@ interface LoginData {
   password: string;
 }
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
@@ -58,14 +53,13 @@ export const useAuth = () => {
   return context;
 };
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<string>('user');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const router = useRouter();
 
-  // Updated to handle the new session structure
   const fetchUser = async () => {
     try {
       setLoading(true);
@@ -78,8 +72,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           name: session.user.name,
           email: session.user.email,
           username: session.user.username,
-          avatar: session.user.avatar ? { url: session.user.avatar } : null,
-          image: session.user.image
+          avatar: session.user.avatar,
+          image: session.user.image,
+          isVerified: session.user.isVerified
         };
         setUser(userData);
         setRole(userData.role);
@@ -135,6 +130,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoading(true);
       const res = await nextAuthSignIn('credentials', {
         redirect: false,
+        type: 'user',
         username,
         email,
         password,
@@ -151,7 +147,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (res.ok) {
         await fetchUser();
         toast.success('Login successful!');
-        router.refresh(); // Add refresh to update client-side data
+        router.refresh();
         return { success: true };
       }
 
@@ -170,7 +166,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoading(true);
       const res = await nextAuthSignIn('credentials', {
         redirect: false,
-        username: 'Admin',
+        type: 'admin',
+        email: process.env.NEXT_PUBLIC_ADMIN_EMAIL,
         password: process.env.NEXT_PUBLIC_ADMIN_PASSWORD,
       }) as SignInResponse;
 
@@ -181,10 +178,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (res.ok) {
         await fetchUser();
-        toast.success('Admin login successful!', {
-          autoClose: 1000,
-          onClose: () => window.location.reload(),
-        });
+        toast.success('Admin login successful!');
+        router.refresh();
         return { success: true };
       }
 

@@ -37,9 +37,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <ThemeProvider initialTheme={initialTheme}>
           <GlobalProvider>
             <AuthProvider>
-              <OfflineLayout>
-              {children}
-              </OfflineLayout>
+              <OfflineLayout>{children}</OfflineLayout>
             </AuthProvider>
           </GlobalProvider>
         </ThemeProvider>

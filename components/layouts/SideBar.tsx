@@ -14,11 +14,16 @@ import SettingsWindow from '@/components/SettingsWindow';
 import { useAuth } from '@/context/AuthContext';
 import { signOut } from 'next-auth/react';
 import { toast } from 'react-toastify';
+import { Session } from 'next-auth';
 
 interface SideBarProps {
   isOpen: boolean;
   onToggle: () => void;
+  onProjectSelect?: (projectId: number) => void;
+  selectedProjectId?: number | null;
+  session: Session | null;
 }
+
 
 const SideBar: React.FC<SideBarProps> = ({ isOpen, onToggle }) => {
   const pathname = usePathname();
@@ -117,14 +122,14 @@ const SideBar: React.FC<SideBarProps> = ({ isOpen, onToggle }) => {
       >
         <div className="flex items-center space-x-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            {user.avatar ? (
+            {user?  (
               <img
-                src={user.avatar.url || user.image || '/default-avatar.png'}
+                src={user?.avatar?.url ||  '/images/default.png'}
                 alt={user.name || 'User'}
                 className="h-10 w-10 rounded-full object-cover"
               />
             ) : (
-              <User className="h-6 w-6" />
+              <User className="h-10 w-10 rounded-full" />
             )}
           </div>
           <div>
@@ -164,7 +169,6 @@ const SideBar: React.FC<SideBarProps> = ({ isOpen, onToggle }) => {
               <div className="flex-1 overflow-y-auto p-4">
                 {renderAuthSection()}
 
-                {user && (
                   <>
                     <div className="mb-4 flex space-x-2">
                       <button
@@ -221,7 +225,6 @@ const SideBar: React.FC<SideBarProps> = ({ isOpen, onToggle }) => {
                       </div>
                     </nav>
                   </>
-                )}
               </div>
 
               <div className="border-t border-divider p-4">

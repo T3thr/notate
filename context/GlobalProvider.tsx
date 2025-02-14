@@ -1,5 +1,6 @@
 'use client'
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { SessionProvider } from "next-auth/react";
 
 interface GlobalContextType {
   isSidebarOpen: boolean;
@@ -45,6 +46,7 @@ export function GlobalProvider({ children }: { children: ReactNode }) {
   };
 
   return (
+    <SessionProvider>
     <GlobalContext.Provider value={{ 
       isSidebarOpen, 
       toggleSidebar, 
@@ -55,6 +57,7 @@ export function GlobalProvider({ children }: { children: ReactNode }) {
     }}>
       {children}
     </GlobalContext.Provider>
+    </SessionProvider>
   );
 }
 

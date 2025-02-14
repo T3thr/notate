@@ -22,6 +22,20 @@
       "when": 1739468532732,
       "tag": "0002_red_the_santerians",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1739540164597,
+      "tag": "0003_harsh_senator_kelly",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1739567610318,
+      "tag": "0004_friendly_medusa",
+      "breakpoints": true
     }
   ]
 }

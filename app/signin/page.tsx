@@ -258,7 +258,7 @@ const SignIn = () => {
             Forgot your password?
           </Link>
           <div className="text-sm">
-            <span className="text-foreground">Don't have an account? </span>
+            <span className="text-foreground">Don&apos;t have an account? </span>
             <Link
               href="/signup"
               className="text-primary hover:text-primary/90 font-medium"

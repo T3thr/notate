@@ -17,7 +17,7 @@ export async function GET() {
             where: (projects, { eq, or, and }) => or(
               eq(projects.createdById, parseInt(session.user.id)),
               and(
-                eq(projectMembers.projectId, projects.id), // ✅ ใช้ `projects.id` แทน `projects.project_id`
+                eq(projectMembers.projectId, projects.id), 
                 eq(projectMembers.userId, parseInt(session.user.id))
               )
             ),

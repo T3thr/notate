@@ -1,10 +1,12 @@
 // types/project.ts
-interface Project {
+export interface Project {
   id: number;
   workspaceId: number;
   name: string;
   description: string | null;
+  type: string | null;
   isPersonal: boolean;
+  createdById: number | null;
   createdAt: Date;
   updatedAt: Date;
 }

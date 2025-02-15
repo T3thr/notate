@@ -124,7 +124,7 @@ const SideBar: React.FC<SideBarProps> = ({ isOpen, onToggle }) => {
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
             {user?  (
               <img
-                src={user?.avatar?.url ||  '/images/default.png'}
+                src={user?.avatar?.url || user.image || '/images/default.png'}
                 alt={user.name || 'User'}
                 className="h-10 w-10 rounded-full object-cover"
               />

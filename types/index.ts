@@ -7,14 +7,16 @@ export interface User {
     role: 'user' | 'admin';
   }
   
-  export interface Project {
-    id: string;
+export interface Project {
+    id: number;
     name: string;
-    description: string;
+    description: string | null;
+    type: string | null;
+    isPersonal: boolean;
+    createdById: number | null;
+    workspaceId: number;
     createdAt: Date;
     updatedAt: Date;
-    userId: string;
-    type: 'personal' | 'team';
   }
   
   export interface Page {

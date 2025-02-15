@@ -14,7 +14,7 @@ interface User {
   avatar?: {
     url: string | null;
   } | null;
-  isVerified?: boolean;
+  isVerified?: string;
   image?: string | null;
 }
 

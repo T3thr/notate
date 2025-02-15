@@ -29,7 +29,8 @@ const SignIn = () => {
   });
   const [isUsernameSignIn, setIsUsernameSignIn] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isFormLoading, setIsFormLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   useEffect(() => {
     if (session?.user) {
@@ -51,7 +52,7 @@ const SignIn = () => {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsLoading(true);
+    setIsFormLoading(true);
 
     try {
       // Check for admin login
@@ -84,13 +85,13 @@ const SignIn = () => {
     } catch (error: any) {
       console.error(error.message || 'An error occurred during sign-in');
     } finally {
-      setIsLoading(false);
+      setIsFormLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
     try {
-      setIsLoading(true);
+      setIsGoogleLoading(true);
       const result = await signIn('google', {
         callbackUrl,
         redirect: false,
@@ -105,7 +106,7 @@ const SignIn = () => {
     } catch (error: any) {
       toast.error('Failed to sign in with Google');
     } finally {
-      setIsLoading(false);
+      setIsGoogleLoading(false);
     }
   };
 
@@ -132,7 +133,7 @@ const SignIn = () => {
                 : 'text-foreground'
             }`}
             onClick={() => setIsUsernameSignIn(true)}
-            disabled={isLoading}
+            disabled={isFormLoading || isGoogleLoading}
           >
             <User className="w-4 h-4 inline mr-2" />
             Username
@@ -145,7 +146,7 @@ const SignIn = () => {
                 : 'text-foreground'
             }`}
             onClick={() => setIsUsernameSignIn(false)}
-            disabled={isLoading}
+            disabled={isFormLoading || isGoogleLoading}
           >
             <Mail className="w-4 h-4 inline mr-2" />
             Email
@@ -170,7 +171,7 @@ const SignIn = () => {
                     className="w-full pl-10 pr-4 py-2 bg-background text-foreground border border-input rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="Enter your username"
                     required
-                    disabled={isLoading}
+                    disabled={isFormLoading || isGoogleLoading}
                   />
                 </div>
               </div>
@@ -189,7 +190,7 @@ const SignIn = () => {
                     className="w-full pl-10 pr-4 py-2 bg-background text-foreground border border-input rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="Enter your email"
                     required
-                    disabled={isLoading}
+                    disabled={isFormLoading || isGoogleLoading}
                   />
                 </div>
               </div>
@@ -209,13 +210,13 @@ const SignIn = () => {
                   className="w-full pl-10 pr-12 py-2 bg-background text-foreground border border-input rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                   placeholder="Enter your password"
                   required
-                  disabled={isLoading}
+                  disabled={isFormLoading || isGoogleLoading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-3 text-foreground hover:text-foreground"
-                  disabled={isLoading}
+                  disabled={isFormLoading || isGoogleLoading}
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -230,21 +231,21 @@ const SignIn = () => {
           <div className="space-y-4">
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isFormLoading || isGoogleLoading}
               className="w-full py-2.5 px-4 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             >
-              {isLoading && <Loader2 className="animate-spin h-4 w-4" />}
-              <span>{isLoading ? 'Signing in...' : 'Sign in'}</span>
+              {isFormLoading && <Loader2 className="animate-spin h-4 w-4" />}
+              <span>{isFormLoading ? 'Signing in...' : 'Sign in'}</span>
             </button>
 
             <button
               type="button"
               onClick={handleGoogleSignIn}
-              disabled={isLoading}
+              disabled={isFormLoading || isGoogleLoading}
               className="w-full py-2.5 px-4 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-destructive focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             >
-              <FaGoogle className="h-4 w-4" />
-              <span>Continue with Google</span>
+              {isGoogleLoading ? <Loader2 className="animate-spin h-4 w-4" /> : <FaGoogle className="h-4 w-4" />}
+              <span>{isGoogleLoading ? 'Signing in with Google...' : 'Continue with Google'}</span>
             </button>
           </div>
         </form>

@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   User, Settings as SettingsIcon, 
   Folder, Home, Users, PersonStanding,
-  Calendar, Bell, LogOut
+  Calendar, Bell, LogOut, Building
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -16,34 +16,143 @@ import { signOut } from 'next-auth/react';
 import { toast } from 'react-toastify';
 import { Session } from 'next-auth';
 
+// Types based on your schema
+interface Project {
+  id: number;
+  name: string;
+  description: string | null;
+  isPersonal: boolean;
+  workspaceId: number | null;
+  ownerId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface Workspace {
+  id: string;
+  name: string;
+  slug: string;
+  ownerId: string;
+  settings: {
+    features: {
+      tasks: boolean;
+      wiki: boolean;
+      files: boolean;
+      calendar: boolean;
+      timeTracking: boolean;
+      automation: boolean;
+    };
+    branding: {
+      logo?: string;
+      favicon?: string;
+      colors: {
+        primary: string;
+        secondary: string;
+        accent: string;
+      };
+    };
+  };
+  plan: 'free' | 'pro' | 'enterprise';
+}
+
+interface WorkspaceMember {
+  workspaceId: string;
+  userId: string;
+  role: string;
+  permissions: {
+    access: 'full' | 'limited' | 'readonly';
+    allowedActions: string[];
+    restrictedSpaces?: string[];
+  };
+}
+
 interface SideBarProps {
   isOpen: boolean;
   onToggle: () => void;
-  onProjectSelect?: (projectId: number) => void;
-  selectedProjectId?: number | null;
   session: Session | null;
 }
 
-
-const SideBar: React.FC<SideBarProps> = ({ isOpen, onToggle }) => {
+const SideBar: React.FC<SideBarProps> = ({ isOpen, onToggle, session }) => {
   const pathname = usePathname();
-  const [activeTab, setActiveTab] = useState<'personal' | 'team'>('personal');
+  const [activeTab, setActiveTab] = useState<'personal' | 'workspace'>('personal');
   const { screenSize } = useGlobal();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { user, loading } = useAuth();
+  const [personalProjects, setPersonalProjects] = useState<Project[]>([]);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [workspaceProjects, setWorkspaceProjects] = useState<Project[]>([]);
+  const [selectedWorkspace, setSelectedWorkspace] = useState<string | null>(null);
 
   const isMobile = screenSize === 'mobile';
 
+  // Fetch personal projects
+  useEffect(() => {
+    const fetchPersonalProjects = async () => {
+      if (!user) return;
+      
+      try {
+        const response = await fetch('/api/projects/personal');
+        if (!response.ok) throw new Error('Failed to fetch personal projects');
+        
+        const data = await response.json();
+        setPersonalProjects(data.projects);
+      } catch (error) {
+        toast.error('Error loading personal projects');
+      }
+    };
+
+    fetchPersonalProjects();
+  }, [user]);
+
+  // Fetch workspaces and their projects
+  useEffect(() => {
+    const fetchWorkspaceData = async () => {
+      if (!user) return;
+      
+      try {
+        const response = await fetch('/api/projects/workspace');
+        if (!response.ok) throw new Error('Failed to fetch workspace data');
+        
+        const data = await response.json();
+        setWorkspaces(data.workspaces);
+        
+        if (data.workspaces.length > 0 && !selectedWorkspace) {
+          setSelectedWorkspace(data.workspaces[0].id);
+        }
+      } catch (error) {
+        toast.error('Error loading workspaces');
+      }
+    };
+
+    fetchWorkspaceData();
+  }, [user]);
+
+  // Fetch projects for selected workspace
+  useEffect(() => {
+    const fetchWorkspaceProjects = async () => {
+      if (!selectedWorkspace) return;
+      
+      try {
+        const response = await fetch(`/api/projects/workspace/${selectedWorkspace}`);
+        if (!response.ok) throw new Error('Failed to fetch workspace projects');
+        
+        const data = await response.json();
+        setWorkspaceProjects(data.projects);
+      } catch (error) {
+        toast.error('Error loading workspace projects');
+      }
+    };
+
+    fetchWorkspaceProjects();
+  }, [selectedWorkspace]);
+
   const handleSignOut = async () => {
     try {
-      // Redirect to the sign-out API route with the desired callbackUrl
       window.location.href = '/api/auth/signout?callbackUrl=/';
-
     } catch (error) {
       toast.error('Error signing out');
     }
   };
-  
 
   const sidebarVariants = {
     open: isMobile ? {
@@ -68,18 +177,6 @@ const SideBar: React.FC<SideBarProps> = ({ isOpen, onToggle }) => {
       width: '16rem',
       transition: { type: "spring", stiffness: 300, damping: 30 }
     }
-  };
-
-  const projects = {
-    personal: [
-      { id: 1, name: 'Personal Tasks', icon: PersonStanding },
-      { id: 2, name: 'Calendar', icon: Calendar },
-    ],
-    team: [
-      { id: 3, name: 'Marketing Campaign', icon: Users },
-      { id: 4, name: 'Product Launch', icon: Bell },
-      { id: 5, name: 'Website Redesign', icon: Folder },
-    ],
   };
 
   const renderAuthSection = () => {
@@ -122,7 +219,7 @@ const SideBar: React.FC<SideBarProps> = ({ isOpen, onToggle }) => {
       >
         <div className="flex items-center space-x-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            {user?  (
+            {user ? (
               <img
                 src={user?.avatar?.url || user.image || '/images/default.png'}
                 alt={user.name || 'User'}
@@ -138,6 +235,55 @@ const SideBar: React.FC<SideBarProps> = ({ isOpen, onToggle }) => {
           </div>
         </div>
       </motion.div>
+    );
+  };
+
+  const renderProjects = () => {
+    if (activeTab === 'personal') {
+      return personalProjects.map((project) => (
+        <Link
+          key={project.id}
+          href={`/projects/${project.id}`}
+          className={`flex items-center space-x-3 rounded-md p-2 transition-colors
+            ${pathname === `/projects/${project.id}` 
+              ? 'bg-accent text-foreground' 
+              : 'text-secondary hover:bg-accent hover:text-foreground'}`}
+        >
+          <PersonStanding className="h-5 w-5" />
+          <span>{project.name}</span>
+        </Link>
+      ));
+    }
+
+    return (
+      <div>
+        <select
+          value={selectedWorkspace || ''}
+          onChange={(e) => setSelectedWorkspace(e.target.value)}
+          className="mb-4 w-full rounded-md border border-divider bg-background p-2 text-sm"
+          aria-label='select'
+        >
+          {workspaces.map((workspace) => (
+            <option key={workspace.id} value={workspace.id}>
+              {workspace.name}
+            </option>
+          ))}
+        </select>
+
+        {workspaceProjects.map((project) => (
+          <Link
+            key={project.id}
+            href={`/workspace/${selectedWorkspace}/projects/${project.id}`}
+            className={`flex items-center space-x-3 rounded-md p-2 transition-colors
+              ${pathname === `/workspace/${selectedWorkspace}/projects/${project.id}` 
+                ? 'bg-accent text-foreground' 
+                : 'text-secondary hover:bg-accent hover:text-foreground'}`}
+          >
+            <Folder className="h-5 w-5" />
+            <span>{project.name}</span>
+          </Link>
+        ))}
+      </div>
     );
   };
 
@@ -169,62 +315,48 @@ const SideBar: React.FC<SideBarProps> = ({ isOpen, onToggle }) => {
               <div className="flex-1 overflow-y-auto p-4">
                 {renderAuthSection()}
 
-                  <>
-                    <div className="mb-4 flex space-x-2">
-                      <button
-                        onClick={() => setActiveTab('personal')}
-                        className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors
-                          ${activeTab === 'personal' 
-                            ? 'bg-primary text-primary-foreground' 
-                            : 'bg-accent text-secondary hover:bg-accent'}`}
-                      >
-                        <PersonStanding className="mb-1 mx-auto h-5 w-5" />
-                        Personal
-                      </button>
-                      <button
-                        onClick={() => setActiveTab('team')}
-                        className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors
-                          ${activeTab === 'team' 
-                            ? 'bg-primary text-primary-foreground' 
-                            : 'bg-accent text-secondary hover:bg-accent'}`}
-                      >
-                        <Users className="mb-1 mx-auto h-5 w-5" />
-                        Team
-                      </button>
-                    </div>
+                <div className="mb-4 flex space-x-2">
+                  <button
+                    onClick={() => setActiveTab('personal')}
+                    className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors
+                      ${activeTab === 'personal' 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'bg-accent text-secondary hover:bg-accent'}`}
+                  >
+                    <PersonStanding className="mb-1 mx-auto h-5 w-5" />
+                    Personal
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('workspace')}
+                    className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors
+                      ${activeTab === 'workspace' 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'bg-accent text-secondary hover:bg-accent'}`}
+                  >
+                    <Building className="mb-1 mx-auto h-5 w-5" />
+                    Workspace
+                  </button>
+                </div>
 
-                    <nav className="space-y-1">
-                      <Link
-                        href="/"
-                        className={`flex items-center space-x-3 rounded-md p-2 transition-colors
-                          ${pathname === '/' 
-                            ? 'bg-accent text-foreground' 
-                            : 'text-secondary hover:bg-accent hover:text-foreground'}`}
-                      >
-                        <Home className="h-5 w-5" />
-                        <span>Dashboard</span>
-                      </Link>
-                      
-                      <div className="pt-4">
-                        <h4 className="mb-2 px-2 text-sm font-medium text-foreground">
-                          {activeTab === 'personal' ? 'Personal Projects' : 'Team Projects'}
-                        </h4>
-                        {projects[activeTab].map((project) => (
-                          <Link
-                            key={project.id}
-                            href={`/projects/${project.id}`}
-                            className={`flex items-center space-x-3 rounded-md p-2 transition-colors
-                              ${pathname === `/projects/${project.id}` 
-                                ? 'bg-accent text-foreground' 
-                                : 'text-secondary hover:bg-accent hover:text-foreground'}`}
-                          >
-                            <Folder className="h-5 w-5" />
-                            <span>{project.name}</span>
-                          </Link>
-                        ))}
-                      </div>
-                    </nav>
-                  </>
+                <nav className="space-y-1">
+                  <Link
+                    href="/"
+                    className={`flex items-center space-x-3 rounded-md p-2 transition-colors
+                      ${pathname === '/' 
+                        ? 'bg-accent text-foreground' 
+                        : 'text-secondary hover:bg-accent hover:text-foreground'}`}
+                  >
+                    <Home className="h-5 w-5" />
+                    <span>Dashboard</span>
+                  </Link>
+                  
+                  <div className="pt-4">
+                    <h4 className="mb-2 px-2 text-sm font-medium text-foreground">
+                      {activeTab === 'personal' ? 'Personal Projects' : 'Workspace Projects'}
+                    </h4>
+                    {renderProjects()}
+                  </div>
+                </nav>
               </div>
 
               <div className="border-t border-divider p-4">

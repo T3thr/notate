@@ -1,87 +1,45 @@
 // app/api/projects/route.ts
-import { NextResponse } from 'next/server';
-import { db } from '@/db';
-import { projects, tasks, kanbanColumns, workspaces, projectMembers } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
-import { getServerSession } from 'next-auth';
-import { options } from '@/app/api/auth/[...nextauth]/options';
+import { NextResponse } from 'next/server'
+import { db } from '@/db'
+import { getServerSession } from 'next-auth'
+import { projects, workspaces, workspaceMembers } from '@/db/schema'
 
-export async function GET() {
-    try {
-        const session = await getServerSession(options);
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        const userProjects = await db.query.projects.findMany({
-            where: (projects, { eq, or, and }) => or(
-              eq(projects.createdById, parseInt(session.user.id)),
-              and(
-                eq(projectMembers.projectId, projects.id), 
-                eq(projectMembers.userId, parseInt(session.user.id))
-              )
-            ),
-            with: {
-              members: {
-                with: {
-                  user: true,
-                },
-              },
-              pages: true,
-            },
-          });
-          
-
-        return NextResponse.json({ projects: userProjects });
-    } catch (error) {
-        console.error('Error fetching projects:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-    }
-}
-  
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(options);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const session = await getServerSession()
+    if (!session?.user?.email) {
+      return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    const { name, description, type, workspaceId } = await req.json();
+    const { name, workspaceId, isPersonal } = await req.json()
+    if (!name) {
+      return new NextResponse('Name is required', { status: 400 })
+    }
 
-    // First create the project   
-    const [newProject] = await db
-      .insert(projects)
-      .values({
-        name,
-        description,
-        type,
-        workspaceId,
-        createdById: parseInt(session.user.id),
+    // If workspace project, verify user has access to workspace
+    if (workspaceId) {
+      const workspace = await db.query.workspaces.findFirst({
+        where: (workspaces, { eq, or }) => or(
+          eq(workspaces.id, workspaceId),
+          eq(workspaceMembers.workspaceId, workspaceId)
+        )
       })
-      .returning();
 
-    // Then create default kanban columns
-    const defaultColumns = ['To Do', 'In Progress', 'Done'];
-    await Promise.all(
-      defaultColumns.map((name, index) =>
-        db.insert(kanbanColumns).values({
-          projectId: newProject.id,
-          name,
-          position: index,
-        })
-      )
-    );
+      if (!workspace) {
+        return new NextResponse('Workspace not found or access denied', { status: 404 })
+      }
+    }
 
-    // Add creator as project member with owner role
-    await db.insert(projectMembers).values({
-        projectId: newProject.id,
-        userId: parseInt(session.user.id),
-        role: 'owner',
-    });
+    const project = await db.insert(projects).values({
+      name,
+      workspaceId: workspaceId || null,
+      isPersonal: isPersonal || false,
+      ownerId: session.user.id
+    }).returning()
 
-    return NextResponse.json(newProject);
+    return NextResponse.json(project[0])
   } catch (error) {
-    console.error('Error creating project:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error('Error creating project:', error)
+    return new NextResponse('Internal Server Error', { status: 500 })
   }
 }

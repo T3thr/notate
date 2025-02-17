@@ -1,17 +1,42 @@
 // db/schema.ts
-import { 
-  pgTable, 
-  serial, 
-  text, 
-  timestamp, 
-  boolean,
-  json,
-  integer,
-  uuid,
-  primaryKey,
-  varchar
-} from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, timestamp, boolean, json, integer, uuid, primaryKey, varchar } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+// Enums for fixed values
+export const UserRole = {
+  USER: 'user',
+  ADMIN: 'admin',
+} as const;
+
+export const SpaceType = {
+  PROJECT: 'project',
+  TEAM: 'team',
+  DEPARTMENT: 'department',
+} as const;
+
+export const PageType = {
+  DOC: 'doc',
+  DATABASE: 'database',
+  BOARD: 'board',
+  CALENDAR: 'calendar',
+} as const;
+
+export const TaskStatus = {
+  TODO: 'todo',
+  IN_PROGRESS: 'in_progress',
+  DONE: 'done',
+} as const;
+
+export const TaskPriority = {
+  LOW: 'low',
+  MEDIUM: 'medium',
+  HIGH: 'high',
+} as const;
+
+export const WorkspacePlan = {
+  FREE: 'free',
+  PRO: 'pro',
+  ENTERPRISE: 'enterprise',
+} as const;
 
 // Users table
 export const users = pgTable('users', {
@@ -23,69 +48,84 @@ export const users = pgTable('users', {
   avatar: text('avatar_url'),
   role: text('role').default('user').notNull(),
   password: text('password').notNull(),
-  isVerified: boolean('is_verified').default(false).notNull(), // Changed to boolean
+  preferences: json('preferences').$type<{
+    theme: 'light' | 'dark' | 'system';
+    timezone: string;
+    notifications: {
+      email: boolean;
+      push: boolean;
+      desktop: boolean;
+      mentions: boolean;
+      updates: boolean;
+    };
+    defaultView: 'board' | 'list' | 'calendar' | 'timeline';
+    shortcuts: Record<string, string>;
+  }>(),
+  isVerified: boolean('is_verified').default(false).notNull(),
+  lastActive: timestamp('last_active'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull()
-  .$onUpdate(() => new Date()),
+  updatedAt: timestamp('updated_at').defaultNow().notNull().$onUpdate(() => new Date()),
 });
-
-export const pages = pgTable('pages', {
-  id: serial('id').primaryKey(),
-  projectId: integer('project_id').references(() => projects.id).notNull(),
-  title: text('title').notNull(),
-  content: json('content').$type<any>(), // Store rich text content as JSON
-  type: text('type').notNull(), // 'note' or 'todo'
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-  createdById: integer('created_by_id').references(() => users.id),
-});
-
-export const todos = pgTable('todos', {
-  id: serial('id').primaryKey(),
-  pageId: integer('page_id').references(() => pages.id).notNull(),
-  title: text('title').notNull(),
-  completed: boolean('completed').default(false).notNull(),
-  dueDate: timestamp('due_date'),
-  priority: text('priority').default('medium'), // 'low', 'medium', 'high'
-  assignedToId: integer('assigned_to_id').references(() => users.id),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
-
 
 // Workspaces table
 export const workspaces = pgTable('workspaces', {
-  id: serial('id').primaryKey(),
+  id: text('id').primaryKey(),
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
+  ownerId: text('owner_id').notNull().references(() => users.id),
+  settings: json('settings').$type<{
+    features: {
+      tasks: boolean;
+      wiki: boolean;
+      files: boolean;
+      calendar: boolean;
+      timeTracking: boolean;
+      automation: boolean;
+    };
+    branding: {
+      logo?: string;
+      favicon?: string;
+      colors: {
+        primary: string;
+        secondary: string;
+        accent: string;
+      };
+    };
+    security: {
+      mfa: boolean;
+      sso: boolean;
+      passwordPolicy: {
+        minLength: number;
+        requireSpecialChars: boolean;
+      };
+    };
+  }>(),
+  plan: text('plan').default(WorkspacePlan.FREE).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull().
-  $onUpdate(() => new Date()),
+  updatedAt: timestamp('updated_at').defaultNow().notNull().$onUpdate(() => new Date()),
+  deletedAt: timestamp('deleted_at'), // Soft delete
 });
 
 // Projects table
 export const projects = pgTable('projects', {
   id: serial('id').primaryKey(),
-  workspaceId: integer('workspace_id').references(() => workspaces.id).notNull(),
-  name: text('name').notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
   description: text('description'),
-  type: text('type'), // 'note' or 'todo'
-  isPersonal: boolean('is_personal').default(false).notNull(),
-  createdById: integer('created_by_id').references(() => users.id),
+  isPersonal: boolean('is_personal').notNull().default(false),
+  workspaceId: integer('workspace_id').references(() => workspaces.id),
+  ownerId: text('owner_id').notNull().references(() => users.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull().
-  $onUpdate(() => new Date()),
-});
+  updatedAt: timestamp('updated_at').defaultNow().notNull().$onUpdate(() => new Date()),
+})
 
 // Kanban board columns
 export const kanbanColumns = pgTable('kanban_columns', {
   id: serial('id').primaryKey(),
   projectId: integer('project_id').references(() => projects.id).notNull(),
-  name: text('name').notNull(),  // Column name like "To Do", "In Progress", etc.
-  position: integer('position').default(0).notNull(),  // Order of the column
+  name: text('name').notNull(),
+  position: integer('position').default(0).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull()
-  .$onUpdate(() => new Date()),
+  updatedAt: timestamp('updated_at').defaultNow().notNull().$onUpdate(() => new Date()),
 });
 
 // Tasks table
@@ -99,9 +139,17 @@ export const tasks = pgTable('tasks', {
   priority: text('priority').default('medium').notNull(),
   status: text('status').default('todo').notNull(),
   assigneeId: integer('assignee_id').references(() => users.id),
+  parentTaskId: integer('parent_task_id'), // For subtasks
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull()
-  .$onUpdate(() => new Date()),
+  updatedAt: timestamp('updated_at').defaultNow().notNull().$onUpdate(() => new Date()),
+});
+
+// Task dependencies table
+export const taskDependencies = pgTable('task_dependencies', {
+  id: serial('id').primaryKey(),
+  taskId: integer('task_id').references(() => tasks.id).notNull(),
+  dependsOnId: integer('depends_on_id').references(() => tasks.id).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 // Events table (for calendar integration)
@@ -115,27 +163,37 @@ export const events = pgTable('events', {
   location: text('location'),
   googleCalendarEventId: text('google_calendar_event_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull().
-  $onUpdate(() => new Date()),
+  updatedAt: timestamp('updated_at').defaultNow().notNull().$onUpdate(() => new Date()),
 });
 
 // Workspace Members junction table
 export const workspaceMembers = pgTable('workspace_members', {
-  workspaceId: integer('workspace_id').references(() => workspaces.id).notNull(),
-  userId: integer('user_id').references(() => users.id).notNull(),
+  id: text('id').primaryKey(),
+  workspaceId: text('workspace_id').references(() => workspaces.id).notNull(),
+  userId: text('user_id').references(() => users.id).notNull(),
   role: text('role').default('member').notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
+  permissions: json('permissions').$type<{
+    access: 'full' | 'limited' | 'readonly';
+    allowedActions: string[];
+    restrictedSpaces?: string[];
+  }>(),
+  status: text('status').default('active').notNull(),
+  invitedBy: text('invited_by').references(() => users.id),
+  joinedAt: timestamp('joined_at').defaultNow().notNull(),
+  expiresAt: timestamp('expires_at'),
 }, (t) => ({
-  pk: primaryKey(t.workspaceId, t.userId),
+  unq: primaryKey(t.workspaceId, t.userId)
 }));
 
+// Project Members junction table
 export const projectMembers = pgTable('project_members', {
-  id: serial('id').primaryKey(),
   projectId: integer('project_id').references(() => projects.id).notNull(),
   userId: integer('user_id').references(() => users.id).notNull(),
-  role: text('role').default('member').notNull(), // 'owner', 'admin', 'member'
+  role: text('role').default('member').notNull(),
   joinedAt: timestamp('joined_at').defaultNow().notNull(),
-});
+}, (t) => ({
+  pk: primaryKey(t.projectId, t.userId),
+}));
 
 // Comments table
 export const comments = pgTable('comments', {
@@ -144,8 +202,7 @@ export const comments = pgTable('comments', {
   userId: integer('user_id').references(() => users.id).notNull(),
   content: text('content').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull().
-  $onUpdate(() => new Date()),
+  updatedAt: timestamp('updated_at').defaultNow().notNull().$onUpdate(() => new Date()),
 });
 
 // Activity Log table
@@ -153,16 +210,18 @@ export const activityLogs = pgTable('activity_logs', {
   id: serial('id').primaryKey(),
   workspaceId: integer('workspace_id').references(() => workspaces.id).notNull(),
   userId: integer('user_id').references(() => users.id).notNull(),
-  entityType: text('entity_type').notNull(), // 'task', 'project', 'event', etc.
+  entityType: text('entity_type').notNull(),
   entityId: integer('entity_id').notNull(),
-  action: text('action').notNull(), // 'created', 'updated', 'deleted', etc.
+  action: text('action').notNull(),
   metadata: json('metadata'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Relations
 export const userRelations = relations(users, ({ many }) => ({
   assignedTasks: many(tasks, { relationName: 'assignee' }),
   activityLogs: many(activityLogs),
+  comments: many(comments),
 }));
 
 export const projectRelations = relations(projects, ({ many, one }) => ({
@@ -170,61 +229,66 @@ export const projectRelations = relations(projects, ({ many, one }) => ({
     fields: [projects.workspaceId],
     references: [workspaces.id],
   }),
+  owner: one(users, {
+    fields: [projects.ownerId],
+    references: [users.id]
+  }),
   tasks: many(tasks),
   events: many(events),
   activityLogs: many(activityLogs),
+  members: many(projectMembers),
 }));
 
 export const kanbanColumnRelations = relations(kanbanColumns, ({ many }) => ({
   tasks: many(tasks),
 }));
 
-export const workspaceRelations = relations(workspaces, ({ many }) => ({
+export const workspaceRelations = relations(workspaces, ({ many, one  }) => ({
   members: many(workspaceMembers),
   projects: many(projects),
   events: many(events),
+  owner: one(users, {
+    fields: [workspaces.ownerId],
+    references: [users.id]
+  })
 }));
 
-// Relations
-export const projectsRelations = relations(projects, ({ many, one }) => ({
-  members: many(projectMembers),
-  pages: many(pages),
-  creator: one(users, {
-    fields: [projects.createdById],
+export const taskRelations = relations(tasks, ({ one, many }) => ({
+  project: one(projects, {
+    fields: [tasks.projectId],
+    references: [projects.id],
+  }),
+  kanbanColumn: one(kanbanColumns, {
+    fields: [tasks.kanbanColumnId],
+    references: [kanbanColumns.id],
+  }),
+  assignee: one(users, {
+    fields: [tasks.assigneeId],
     references: [users.id],
+  }),
+  subtasks: many(tasks, { relationName: 'parentTask' }),
+  dependencies: many(taskDependencies, { relationName: 'taskDependencies' }),
+  comments: many(comments),
+}));
+
+export const taskDependenciesRelations = relations(taskDependencies, ({ one }) => ({
+  task: one(tasks, {
+    fields: [taskDependencies.taskId],
+    references: [tasks.id],
+  }),
+  dependsOn: one(tasks, {
+    fields: [taskDependencies.dependsOnId],
+    references: [tasks.id],
   }),
 }));
 
-export const projectMembersRelations = relations(projectMembers, ({ one }) => ({
-  project: one(projects, {
-    fields: [projectMembers.projectId],
-    references: [projects.id],
+export const commentRelations = relations(comments, ({ one }) => ({
+  task: one(tasks, {
+    fields: [comments.taskId],
+    references: [tasks.id],
   }),
   user: one(users, {
-    fields: [projectMembers.userId],
-    references: [users.id],
-  }),
-}));
-
-export const pagesRelations = relations(pages, ({ many, one }) => ({
-  project: one(projects, {
-    fields: [pages.projectId],
-    references: [projects.id],
-  }),
-  todos: many(todos),
-  creator: one(users, {
-    fields: [pages.createdById],
-    references: [users.id],
-  }),
-}));
-
-export const todosRelations = relations(todos, ({ one }) => ({
-  page: one(pages, {
-    fields: [todos.pageId],
-    references: [pages.id],
-  }),
-  assignedTo: one(users, {
-    fields: [todos.assignedToId],
+    fields: [comments.userId],
     references: [users.id],
   }),
 }));
@@ -236,8 +300,17 @@ export type NewUser = typeof users.$inferInsert;
 export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
 
-export type Page = typeof pages.$inferSelect;
-export type NewPage = typeof pages.$inferInsert;
+export type Task = typeof tasks.$inferSelect;
+export type NewTask = typeof tasks.$inferInsert;
 
-export type Todo = typeof todos.$inferSelect;
-export type NewTodo = typeof todos.$inferInsert;
+export type Comment = typeof comments.$inferSelect;
+export type NewComment = typeof comments.$inferInsert;
+
+export type Event = typeof events.$inferSelect;
+export type NewEvent = typeof events.$inferInsert;
+
+export type KanbanColumn = typeof kanbanColumns.$inferSelect;
+export type NewKanbanColumn = typeof kanbanColumns.$inferInsert;
+
+export type TaskDependency = typeof taskDependencies.$inferSelect;
+export type NewTaskDependency = typeof taskDependencies.$inferInsert;

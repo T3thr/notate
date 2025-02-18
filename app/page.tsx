@@ -173,7 +173,39 @@ export default function Home() {
         sum + col.tasks.filter(task => new Date(task.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length, 0)
     }))
   }
+  // Add new state for editing
+  const [editingTask, setEditingTask] = useState<{
+    id: string;
+    field: 'title' | 'description';
+  } | null>(null)
 
+  // Add new function to handle task updates
+  const updateTask = useCallback((taskId: string, updates: Partial<Task>) => {
+    setColumns(prev => prev.map(col => ({
+      ...col,
+      tasks: col.tasks.map(task => 
+        task.id === taskId
+          ? { 
+              ...task, 
+              ...updates,
+              lastUpdated: new Date().toISOString()
+            }
+          : task
+      )
+    })))
+  }, [])
+
+  // Add function to handle edit completion
+  const handleEditComplete = (
+    taskId: string,
+    field: 'title' | 'description',
+    value: string
+  ) => {
+    if (value.trim()) {
+      updateTask(taskId, { [field]: value.trim() })
+    }
+    setEditingTask(null)
+  }
   // Enhanced Handlers
   const handleDragStart = (task: Task) => {
     setDraggingTask(task)
@@ -316,7 +348,7 @@ export default function Home() {
     <div className="flex min-h-screen bg-background transition-colors duration-100">
       <SideBar isOpen={isSidebarOpen} onToggle={toggleSidebar} session={null} />
       <motion.div 
-        className="flex-1 transition-all duration-100 overflow-hidden"
+        className="flex-1  overflow-hidden"
         initial="collapsed"
         animate={isSidebarOpen && !isMobile ? "expanded" : "collapsed"}
         variants={containerVariants}
@@ -335,7 +367,7 @@ export default function Home() {
                 onChange={e => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 rounded-lg border text-foreground border-gray-200 
                   dark:border-gray-700 bg-background 
-                  focus:ring-2 focus:ring-blue-500 transition-all duration-100"
+                  focus:ring-2 focus:ring-blue-500 "
               />
             </div>
             <div className="flex gap-4">
@@ -344,7 +376,7 @@ export default function Home() {
                 onChange={e => setSelectedPriority(e.target.value)}
                 className="px-4 py-2 rounded-lg border border-gray-200 
                   dark:border-gray-700 bg-background text-foreground
-                  focus:ring-2 focus:ring-blue-500 transition-all duration-100"
+                  focus:ring-2 focus:ring-blue-500 "
                 aria-label='selectpriority'
               >
                 <option value="all">All Priorities</option>
@@ -357,7 +389,7 @@ export default function Home() {
                 className="p-2 rounded-lg border text-foreground border-gray-200 
                   dark:border-gray-700 bg-background
                   hover:bg-gray-50 dark:hover:bg-gray-700
-                  transition-all duration-100"
+                  "
                 aria-label="Toggle view"
               >
                 <Calendar className="h-5 w-5" />
@@ -372,7 +404,7 @@ export default function Home() {
                 key={index}
                 className={`rounded-xl bg-background p-6 
                   shadow-sm hover:shadow-md border border-gray-200 
-                  dark:border-gray-700 transition-all duration-100`}
+                  dark:border-gray-700 `}
                 whileHover={{ scale: 1.02 }}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -423,24 +455,46 @@ export default function Home() {
                   </div>
 
                   <AnimatePresence>
-                    {getFilteredTasks(column.tasks).map((task, index) => (
-                      <motion.div
-                        key={task.id}
-                        draggable
-                        onDragStart={() => handleDragStart(task)}
-                        className={`bg-background rounded-lg 
-                          shadow-sm p-4 mb-3 border border-gray-200 
-                          dark:border-gray-700 hover:shadow-md
-                          transition-all duration-100`}
-                        whileHover={{ scale: 1.02 }}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                      >
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-medium text-gray-900 dark:text-white">
+                  {getFilteredTasks(column.tasks).map((task, index) => (
+                    <motion.div
+                      key={task.id}
+                      draggable
+                      onDragStart={() => handleDragStart(task)}
+                      className={`bg-background rounded-lg 
+                        shadow-sm p-4 mb-3 border border-gray-200 
+                        dark:border-gray-700 hover:shadow-md
+                        `}
+                      whileHover={{ scale: 1.02 }}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                    >
+                      <div className="flex items-center justify-between">
+                        {editingTask?.id === task.id && editingTask.field === 'title' ? (
+                          <input
+                            type="text"
+                            defaultValue={task.title}
+                            className="w-full px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 
+                              bg-background text-foreground focus:ring-2 focus:ring-blue-500"
+                            aria-label='enterEdit'
+                            onBlur={(e) => handleEditComplete(task.id, 'title', e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleEditComplete(task.id, 'title', e.currentTarget.value)
+                              } else if (e.key === 'Escape') {
+                                setEditingTask(null)
+                              }
+                            }}
+                            autoFocus
+                          />
+                        ) : (
+                          <h4 
+                            className="font-medium text-gray-900 dark:text-white cursor-pointer hover:text-blue-500"
+                            onClick={() => setEditingTask({ id: task.id, field: 'title' })}
+                          >
                             {task.title}
                           </h4>
+                        )}
                           <div className="relative">
                             <button
                               onClick={() => setOpenTaskMenuId(task.id === openTaskMenuId ? null : task.id)}
@@ -479,7 +533,31 @@ export default function Home() {
                           </div>
                         </div>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                          {task.description}
+                        {editingTask?.id === task.id && editingTask.field === 'description' ? (
+                          <textarea
+                            defaultValue={task.description}
+                            className="w-full mt-1 px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 
+                              bg-background text-foreground focus:ring-2 focus:ring-blue-500"
+                              aria-label='description'
+                            onBlur={(e) => handleEditComplete(task.id, 'description', e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && e.shiftKey) {
+                                handleEditComplete(task.id, 'description', e.currentTarget.value)
+                              } else if (e.key === 'Escape') {
+                                setEditingTask(null)
+                              }
+                            }}
+                            autoFocus
+                            rows={3}
+                          />
+                        ) : (
+                          <p 
+                            className="text-sm text-gray-500 dark:text-gray-400 mt-1 cursor-pointer hover:text-blue-500"
+                            onClick={() => setEditingTask({ id: task.id, field: 'description' })}
+                          >
+                            {task.description}
+                          </p>
+                        )}
                         </p>
                         <div className="mt-2 flex items-center gap-2">
                           <span className={`text-xs px-2 py-1 rounded-full bg-${task.priority}-100 text-${task.priority}-800`}>
